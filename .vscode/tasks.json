@@ -1,0 +1,59 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Generate RTL",
+            "type": "shell",
+            "command": "make generate",
+            "group": "build",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Unit Tests",
+            "type": "shell",
+            "command": "make test-unit",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run Integration Tests",
+            "type": "shell",
+            "command": "make test-integration",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run System Tests",
+            "type": "shell",
+            "command": "make test-system",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Run All Tests",
+            "type": "shell",
+            "command": "make test",
+            "group": "test",
+            "problemMatcher": []
+        },
+        {
+            "label": "Open Waveforms",
+            "type": "shell",
+            "command": "make wave",
+            "problemMatcher": []
+        },
+        {
+            "label": "Clean Project",
+            "type": "shell",
+            "command": "make clean",
+            "problemMatcher": []
+        },
+        {
+            "label": "Synthesize (Yosys/NextPNR)",
+            "type": "shell",
+            "command": "make synth-ecp5",
+            "group": "build",
+            "problemMatcher": []
+        }
+    ]
+}

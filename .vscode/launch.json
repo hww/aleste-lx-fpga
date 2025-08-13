@@ -1,0 +1,36 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "type": "scala",
+      "request": "launch",
+      "name": "Debug SpinalHDL Gen",
+      "mainClass": "aleste.AlesteGen", // Замените на ваш главный класс
+      "args": [],
+      "jvmOptions": ["-Xmx4G"] // Опционально: увеличение памяти
+    },
+    {
+      "type": "scala",
+      "request": "launch",
+      "name": "Debug SpinalHDL",
+      "mainClass": "aleste.Aleste", // Замените на ваш главный класс
+      "args": [],
+      "jvmOptions": ["-Xmx4G"] // Опционально: увеличение памяти
+    },    
+    {
+        "type": "scala",
+        "request": "launch",
+        "name": "Debug Scala Tests",
+        "mainClass": "org.scalatest.tools.Runner",
+        "args": [
+            "-R",
+            "target/scala-2.13/test-classes",
+            "-o",
+            "-s",
+            "${command:AskForTestName}"
+        ],
+        "jvmOptions": [],
+        "buildTarget": "test"
+    }
+  ]
+}
