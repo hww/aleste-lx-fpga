@@ -1,10 +1,12 @@
+
+
 // src/main/scala/modules/i8255/i8255_gen.scala
-package aleste.modules.i8255
+package  aleste.modules.delta_sigma_dac
 
 import spinal.core._
 import spinal.lib.io.TriState
 
-object i8255Gen {
+object PwmDacGen {
   def main(args: Array[String]): Unit = {
     SpinalConfig(
       targetDirectory = "rtl/verilog/",  // Путь относительно корня проекта
@@ -13,9 +15,9 @@ object i8255Gen {
         resetKind = SYNC,
         resetActiveLevel = LOW
       )
-    ).generateVerilog(new I8255)
+    ).generateVerilog(new DeltaSigmaDac)
     
-    println("[SUCCESS] Generated i8255.v")
+    println("[SUCCESS] Generated delta_sigma_dac.v")
   }
 }
 

@@ -5,5 +5,6 @@ import spinal.lib._
 
 class Aleste extends Component {
   val io = new Bundle {
+    val clk = in Bool()
   }
 }

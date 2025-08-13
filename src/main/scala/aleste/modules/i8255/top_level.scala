@@ -1,5 +1,5 @@
 // src/main/scala/modules/i8255/top_level.scala
-package i8255
+package  aleste.modules.i8255
 
 import spinal.core._
 

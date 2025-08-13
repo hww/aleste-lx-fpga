@@ -1,4 +1,4 @@
-package pwm_dac
+package  aleste.modules.pwm_dac
 
 import spinal.core._
 import spinal.lib._

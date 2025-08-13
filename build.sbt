@@ -7,6 +7,7 @@ val spinalVersion = "1.10.1"
 //fork in test := true // Важно для Windows!
 //javaOptions in test += "-Djava.library.path=/c/msys64/mingw64/bin" // Путь к бинарникам
 
+
 lazy val root = (project in file("."))
   .settings(
     name := "Aleste",
@@ -17,6 +18,9 @@ lazy val root = (project in file("."))
    ),
     addCompilerPlugin("com.github.spinalhdl" %% "spinalhdl-idsl-plugin" % spinalVersion),
     scalacOptions += "-Ymacro-annotations",
-    fork := true
+    // Увеличиваем память и параллелизм
+    fork := true,
+    javaOptions ++= Seq("-Xmx4G", "-Xss8M", "-XX:MaxMetaspaceSize=1G"),
+    scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-language:reflectiveCalls"),
   )
 

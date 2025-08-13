@@ -1,4 +1,4 @@
-package delta_sigma_dac
+package aleste.modules.delta_sigma_dac
 
 import spinal.core._
 import spinal.core.sim._

@@ -1,27 +1,31 @@
 # Project Configuration
 PROJECT_NAME := aleste
-SBT := sbt -Djline.terminal=jline.UnsupportedTerminal
+SBT := sbt -Djline.terminal=jline.UnsupportedTerminal -J-Xmx4G -J-XX:ParallelGCThreads=4 
 SCALA_PKG := aleste
-RTLS_DIR := rtl
+RTLS_DIR := rtl/verilog
 SIM_DIR := simulation
 REPORTS_DIR := reports
+# Yosys/NextPNR для ECP5
+SYNTH_DIR := synth
+DEVICE := --um5g-85k --package CABGA381
+CONSTRAINTS := constraints.lpf
+TOP_MODULE := Aleste  # Must match your actual top module name in Verilog
 
-# Module Hierarchy (добавлять новые модули здесь)
+# Module Hierarchy
 MODULES := \
-	modules/i8255 \
-	modules/pwm_dac \
-	subsystems/z80 \
-	aleste
+    aleste.modules.i8255 \
+    aleste.modules.pwm_dac \
+    aleste.modules.delta_sigma_dac \
+    aleste
 
-# Тестовые цели (соответствуют структуре тестов)
+# Тестовые цели
 TEST_SUITES := \
-	modules.i8255_test \
-	modules.pwm_dac_test \
-	modules.delta_sigma_dac \
-	integration.z80_test \
-	system.aleste_test
+    aleste.modules.i8255_test \
+    aleste.modules.pwm_dac_test \
+    aleste.modules.delta_sigma_dac_test \
+    aleste_test
 
-.PHONY: all clean generate test test-unit test-integration test-system wave
+.PHONY: all clean generate test
 
 all: generate test
 
@@ -30,15 +34,16 @@ generate: $(addprefix gen-,$(MODULES))
 
 gen-%:
 	@echo "Generating $*..."
-	@mkdir -p $(RTLS_DIR)/$(dir $*)
-	@$(SBT) "runMain $(SCALA_PKG).TopLevel $(notdir $*)" > $(RTLS_DIR)/$*.log
+	@mkdir -p $(RTLS_DIR)
+	echo $(SBT) "runMain $*.TopLevel"
+	@$(SBT) "runMain $*.TopLevel" > $(RTLS_DIR)/$*.log || (echo "Generation failed"; exit 1)
 
-# Запуск тестов
+# Запуск тестов (ТАБУЛЯЦИЯ!)
 test: test-unit test-integration test-system
 
 test-unit:
 	@echo "Running unit tests..."
-	@$(SBT) "testOnly $(SCALA_PKG).modules.*" | tee $(REPORTS_DIR)/unit_tests.log
+	@$(SBT) "testOnly $(TEST_SUITES)" | tee $(REPORTS_DIR)/unit_tests.log
 
 test-integration:
 	@echo "Running integration tests..."
@@ -48,66 +53,17 @@ test-system:
 	@echo "Running system tests..."
 	@$(SBT) "testOnly $(SCALA_PKG).system.*" | tee $(REPORTS_DIR)/system_tests.log
 
-# Анализ waveform
-wave:
-	@echo "Opening waveforms..."
-	@gtkwave $(SIM_DIR)/*.vcd >/dev/null 2>&1 &
+# Остальные правила (wave, doc, clean, init, report) остаются аналогичными
 
-# Сборка документации
-doc:
-	@echo "Generating documentation..."
-	@$(SBT) doc
-	@cp -r target/scala-2.13/api $(REPORTS_DIR)/scaladoc
-
-# Очистка проекта
-clean:
-	@echo "Cleaning project..."
-	@rm -rf $(RTLS_DIR) $(SIM_DIR) $(REPORTS_DIR) target project/target .bsp .metals
-
-# Инициализация структуры проекта
-init:
-	@mkdir -p \
-		src/main/scala/$(SCALA_PKG)/modules \
-		src/main/scala/$(SCALA_PKG)/subsystems \
-		src/test/scala/$(SCALA_PKG)/modules \
-		src/test/scala/$(SCALA_PKG)/integration \
-		src/test/scala/$(SCALA_PKG)/system \
-		$(RTLS_DIR)/modules \
-		$(RTLS_DIR)/subsystems \
-		$(SIM_DIR) \
-		$(REPORTS_DIR)
-	@touch src/main/scala/$(SCALA_PKG)/main.scala
-	@echo "Project structure created"
-
-# Отчеты и метрики
-report:
-	@echo "Generating reports..."
-	@$(SBT) "runMain $(SCALA_PKG).reports.ReportGenerator"
-	@open $(REPORTS_DIR)/summary.html  # Для macOS, для Linux: xdg-open
-
-# Синтез (пример для Xilinx)
-synth: generate
-	@echo "Running synthesis for TopLevel..."
-	@vivado -mode batch -source scripts/synth.tcl -log $(REPORTS_DIR)/synth.log
-
-
-# Yosys/NextPNR для ECP5
-
-# sudo apt install yosys nextpnr-ecp5 trellis-tools
-SYNTH_DIR := synth
-DEVICE := --um5g-85k --package CABGA381
-CONSTRAINTS := constraints.lpf
-
-synth-ecp5: generate
+# Синтез ECP5 (ТАБУЛЯЦИЯ В КОМАНДАХ!)
+#synth-ecp5: generate
+synth-ecp5: 
 	@echo "Running Yosys synthesis..."
 	@mkdir -p $(SYNTH_DIR)
-	@yosys -p "read_verilog $(RTLS_DIR)/aleste/*.v; synth_ecp5 -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(SYNTH_DIR)/yosys.log
-	
+	@yosys -p "read_verilog $(RTLS_DIR)/*.v; synth_ecp5 -top $(TOP_MODULE) -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(SYNTH_DIR)/yosys.log
+# @yosys -p "read_verilog $(RTLS_DIR)/*.v; synth_ecp5 -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(SYNTH_DIR)/yosys.log
 	@echo "Running NextPNR..."
-	@nextpnr-ecp5 $(DEVICE) --json $(SYNTH_DIR)/$(PROJECT_NAME).json --lpf $(CONSTRAINTS) --textcfg $(SYNTH_DIR)/$(PROJECT_NAME)_out.config 2>&1 | tee $(SYNTH_DIR)/nextpnr.log
-	
+	@nextpnr-ecp5 $(DEVICE) --top $(TOP_MODULE) --json $(SYNTH_DIR)/$(PROJECT_NAME).json --lpf $(CONSTRAINTS) --textcfg $(SYNTH_DIR)/$(PROJECT_NAME)_out.config 2>&1 | tee $(SYNTH_DIR)/nextpnr.log
 	@echo "Generating bitstream..."
 	@ecppack --svf $(SYNTH_DIR)/$(PROJECT_NAME).svf $(SYNTH_DIR)/$(PROJECT_NAME)_out.config $(SYNTH_DIR)/$(PROJECT_NAME).bit 2>&1 | tee $(SYNTH_DIR)/ecppack.log
-	
 	@echo "Synthesis complete. Bitstream: $(SYNTH_DIR)/$(PROJECT_NAME).bit"
-

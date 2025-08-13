@@ -13,7 +13,7 @@
       "type": "scala",
       "request": "launch",
       "name": "Debug SpinalHDL",
-      "mainClass": "aleste.Aleste", // Замените на ваш главный класс
+      "mainClass": "aleste.TopLevel", // Замените на ваш главный класс
       "args": [],
       "jvmOptions": ["-Xmx4G"] // Опционально: увеличение памяти
     },    
@@ -27,10 +27,16 @@
             "target/scala-2.13/test-classes",
             "-o",
             "-s",
-            "${command:AskForTestName}"
+            "${input:testClassAndMethod}"
         ],
-        "jvmOptions": [],
-        "buildTarget": "test"
+        "jvmOptions": []
     }
-  ]
+  ],
+      "inputs": [
+        {
+            "id": "testClassAndMethod",
+            "type": "promptString",
+            "description": "Enter test class (and optionally method) to run (e.g. 'MyTest' or 'MyTest.myMethod')"
+        }
+    ]
 }

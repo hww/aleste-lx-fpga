@@ -1,4 +1,4 @@
-package i8255
+package aleste.modules.i8255
 
 import spinal.core._
 import spinal.core.sim._
