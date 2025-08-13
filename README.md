@@ -1,4 +1,4 @@
-# Aleste XL FPGA
+# Aleste LX FPGA
 
 A modern FPGA implementation of the classic Aleste computer architecture.
 
