@@ -21,15 +21,20 @@ class Z80TestBench extends Component {
   val initialContent = BinaryTools.loadToMem("tests/zexall/zexall.com")
   ram.init(initialContent ++ Seq.fill(65536 - initialContent.length)(B(0)))
 
+  // Генератор тактового сигнала
+  val clk = Reg(Bool()) init(False)
+  clk := !clk
+  
+  // Подключения
+  z80.io.clk := clk
+  z80.io.clk_en := cpuClockEn
+  z80.io.reset_n := !ClockDomain.current.readResetWire // Исправленная строка
+  z80.io.data_in := 0
+
   // Генератор тактового разрешения
   clkCounter := clkCounter + 1
   cpuClockEn := clkCounter === 24
   when(cpuClockEn) { clkCounter := 0 }
-  
-  // Подключения
-  z80.io.clk_en := cpuClockEn
-  z80.io.reset_n := !ClockDomain.current.readResetWire // Исправленная строка
-  z80.io.data_in := 0
 
   // Обработка памяти
   when(z80.io.mem_mreq) {

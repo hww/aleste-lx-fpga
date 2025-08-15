@@ -14,11 +14,12 @@ class Z80Subsystem extends Component {
     val mem_io = out Bool()
     val clk_en = in Bool()
     val reset_n = in Bool()
+    val clk = in Bool()  // Добавляем явный вход тактового сигнала
   }
 
-  // BlackBox для T80 с правильными подключениями
+  // Изолированный BlackBox без прямого подключения к clockDomain
   val t80 = new BlackBox {
-    // Объявляем ВСЕ порты явно
+    // Порты
     val RESET_n = in Bool()
     val CLK_n = in Bool()
     val CLKEN = in Bool()
@@ -38,31 +39,29 @@ class Z80Subsystem extends Component {
     val DI = in Bits(8 bits)
     val DO = out Bits(8 bits)
 
-    // Настройки BlackBox
+    // Настройки
     setDefinitionName("T80se")
     addGeneric("Mode", 0)
     addGeneric("T2Write", 0)
     addGeneric("IOWait", 1)
+    // Добавление VHDL файлов
+    addRTLPath("rtl/cores/t80/T80_Pack.vhd")
+    addRTLPath("rtl/cores/t80/T80_MCode.vhd")
+    addRTLPath("rtl/cores/t80/T80_ALU.vhd")
+    addRTLPath("rtl/cores/t80/T80_Reg.vhd")
+    addRTLPath("rtl/cores/t80/T80se.vhd")
+    
+    // Явное подключение без использования clockDomain
+    CLK_n := !io.clk
+    RESET_n := io.reset_n
+    CLKEN := io.clk_en
+    WAIT_n := True
+    INT_n := True
+    NMI_n := True
+    BUSRQ_n := True
+    DI := io.data_in
 
-    // Подключение VHDL файлов через абсолютные пути
-    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80_Pack.vhd")
-    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80_MCode.vhd")
-    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80_ALU.vhd")
-    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80_Reg.vhd")
-    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80se.vhd")
   }
-
-  // Правильное подключение тактового домена
-  t80.CLK_n := !clockDomain.clock
-  t80.RESET_n := io.reset_n
-  
-  // Подключение управляющих сигналов
-  t80.CLKEN := io.clk_en
-  t80.WAIT_n := True
-  t80.INT_n := True
-  t80.NMI_n := True
-  t80.BUSRQ_n := True
-  t80.DI := io.data_in
 
   // Подключение выходов
   io.data_out := t80.DO
@@ -71,4 +70,6 @@ class Z80Subsystem extends Component {
   io.mem_io := !t80.IORQ_n
   io.mem_rd := !t80.RD_n
   io.mem_wr := !t80.WR_n
+
+
 }
