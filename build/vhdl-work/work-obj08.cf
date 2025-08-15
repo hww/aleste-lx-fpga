@@ -1,18 +1,18 @@
 v 4
-file . "../../rtl/cores/t80/T80se.vhd" "46e114015860d75e001d3e800f1a4cf626010035" "20250815185054.395":
-  entity t80se at 70( 2582) + 0 on 47;
-  architecture rtl of t80se at 103( 3638) + 0 on 48;
-file . "../../rtl/cores/t80/T80_ALU.vhd" "40a4de2517c4021689c3d717d3861c4f5dc7b5f6" "20250815185054.355":
-  entity t80_alu at 70( 2908) + 0 on 41;
-  architecture rtl of t80_alu at 103( 3900) + 0 on 42;
-file . "../../rtl/cores/t80/T80_Pack.vhd" "175da97237114c7aeeb38a9442eab9980a7f2c18" "20250815185054.324":
-  package t80_pack at 58( 2243) + 0 on 38;
-file . "../../rtl/cores/t80/T80_MCode.vhd" "9b1fed91d51d81feb577548c3ce7f0311cf3011d" "20250815185054.342":
-  entity t80_mcode at 75( 3267) + 0 on 39;
-  architecture rtl of t80_mcode at 160( 6431) + 0 on 40;
-file . "../../rtl/cores/t80/T80_Reg.vhd" "d162c70eb67936ba56fbbd6c3b3c88e469c72607" "20250815185054.364":
-  entity t80_reg at 71( 2667) + 0 on 43;
-  architecture rtl of t80_reg at 98( 3516) + 0 on 44;
-file . "../../rtl/cores/t80/T80.vhd" "ac0abb1ef77196adf97be794f981ce7d7b1db54b" "20250815185054.382":
-  entity t80 at 79( 3560) + 0 on 45;
-  architecture rtl of t80 at 131( 5312) + 0 on 46;
+file . "../../rtl/cores/t80/T80se.vhd" "46e114015860d75e001d3e800f1a4cf626010035" "20250815195334.983":
+  entity t80se at 70( 2582) + 0 on 20;
+  architecture rtl of t80se at 103( 3638) + 0 on 21;
+file . "../../rtl/cores/t80/T80_Reg.vhd" "d162c70eb67936ba56fbbd6c3b3c88e469c72607" "20250815195334.957":
+  entity t80_reg at 71( 2667) + 0 on 16;
+  architecture rtl of t80_reg at 98( 3516) + 0 on 17;
+file . "../../rtl/cores/t80/T80_MCode.vhd" "9b1fed91d51d81feb577548c3ce7f0311cf3011d" "20250815195334.938":
+  entity t80_mcode at 75( 3267) + 0 on 12;
+  architecture rtl of t80_mcode at 160( 6431) + 0 on 13;
+file . "../../rtl/cores/t80/T80_Pack.vhd" "175da97237114c7aeeb38a9442eab9980a7f2c18" "20250815195334.922":
+  package t80_pack at 58( 2243) + 0 on 11;
+file . "../../rtl/cores/t80/T80_ALU.vhd" "40a4de2517c4021689c3d717d3861c4f5dc7b5f6" "20250815195334.948":
+  entity t80_alu at 70( 2908) + 0 on 14;
+  architecture rtl of t80_alu at 103( 3900) + 0 on 15;
+file . "../../rtl/cores/t80/T80.vhd" "ac0abb1ef77196adf97be794f981ce7d7b1db54b" "20250815195334.973":
+  entity t80 at 79( 3560) + 0 on 18;
+  architecture rtl of t80 at 131( 5312) + 0 on 19;

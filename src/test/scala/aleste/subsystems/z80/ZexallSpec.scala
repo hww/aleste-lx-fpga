@@ -7,37 +7,31 @@ import spinal.lib._
 
 class ZexallSpec extends AnyFlatSpec {
   "Z80" should "pass ZEXALL" in {
+    // Простая конфигурация без дополнительных параметров
     SimConfig
-      .withGhdl
-      .withConfig(SpinalConfig(
-        defaultClockDomainFrequency = FixedFrequency(4 MHz)
-      ))
-      .addRtl("rtl/cores/t80/T80_Pack.vhd")
-      .addRtl("rtl/cores/t80/T80_MCode.vhd")
-      .addRtl("rtl/cores/t80/T80_ALU.vhd")
-      .addRtl("rtl/cores/t80/T80_Reg.vhd")
-      .addRtl("rtl/cores/t80/T80se.vhd")
+      .withWave
       .compile(new Z80TestBench)
       .doSim { dut =>
-        // Инициализация тактового сигнала
+        // Настройка домена часов
         dut.clockDomain.forkStimulus(period = 10)
         
-        // Сброс в начале симуляции
+        // Сброс в начале
         dut.clockDomain.assertReset()
-        sleep(100)  // Задержка вместо deassertResetAfter
+        sleep(100)
         dut.clockDomain.deassertReset()
-        
-        // Ожидание завершения теста
+
+        // Мониторинг выполнения
         var cycles = 0
         while(cycles < 1000000 && !dut.io.testDone.toBoolean) {
           dut.clockDomain.waitSampling()
           cycles += 1
           if(cycles % 100000 == 0) println(s"Cycle $cycles")
         }
-        
+
         // Проверка результатов
         assert(dut.io.testDone.toBoolean, s"Timeout after $cycles cycles")
         assert(!dut.io.error.toBoolean, "Test failed with error flag")
+        println(s"ZEXALL completed in $cycles cycles")
       }
   }
 }

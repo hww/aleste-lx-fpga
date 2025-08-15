@@ -13,11 +13,12 @@ class Z80Subsystem extends Component {
     val mem_mreq = out Bool()
     val mem_io = out Bool()
     val clk_en = in Bool()
-    val reset_n = in Bool()  // Добавлен явный сигнал сброса
+    val reset_n = in Bool()
   }
 
+  // BlackBox для T80 с правильными подключениями
   val t80 = new BlackBox {
-    // Основные сигналы
+    // Объявляем ВСЕ порты явно
     val RESET_n = in Bool()
     val CLK_n = in Bool()
     val CLKEN = in Bool()
@@ -25,8 +26,6 @@ class Z80Subsystem extends Component {
     val INT_n = in Bool()
     val NMI_n = in Bool()
     val BUSRQ_n = in Bool()
-    
-    // Управляющие сигналы
     val M1_n = out Bool()
     val MREQ_n = out Bool()
     val IORQ_n = out Bool()
@@ -35,37 +34,35 @@ class Z80Subsystem extends Component {
     val RFSH_n = out Bool()
     val HALT_n = out Bool()
     val BUSAK_n = out Bool()
-    
-    // Шины
     val A = out Bits(16 bits)
     val DI = in Bits(8 bits)
     val DO = out Bits(8 bits)
 
-    // Конфигурация
+    // Настройки BlackBox
     setDefinitionName("T80se")
     addGeneric("Mode", 0)
     addGeneric("T2Write", 0)
     addGeneric("IOWait", 1)
-    
-    // Подключение файлов VHDL
-    addRTLPath("rtl/cores/t80/T80_Pack.vhd")
-    addRTLPath("rtl/cores/t80/T80_MCode.vhd")
-    addRTLPath("rtl/cores/t80/T80_ALU.vhd")
-    addRTLPath("rtl/cores/t80/T80_Reg.vhd")
-    addRTLPath("rtl/cores/t80/T80se.vhd")
 
-    // Правильное подключение тактового сигнала
-    CLK_n := !clockDomain.clock
-    RESET_n := io.reset_n  // Используем внешний сброс
-    
-    // Статические сигналы
-    CLKEN := io.clk_en
-    WAIT_n := True
-    INT_n := True
-    NMI_n := True
-    BUSRQ_n := True
-    DI := io.data_in
+    // Подключение VHDL файлов через абсолютные пути
+    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80_Pack.vhd")
+    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80_MCode.vhd")
+    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80_ALU.vhd")
+    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80_Reg.vhd")
+    addRTLPath(sys.env("PWD") + "/rtl/cores/t80/T80se.vhd")
   }
+
+  // Правильное подключение тактового домена
+  t80.CLK_n := !clockDomain.clock
+  t80.RESET_n := io.reset_n
+  
+  // Подключение управляющих сигналов
+  t80.CLKEN := io.clk_en
+  t80.WAIT_n := True
+  t80.INT_n := True
+  t80.NMI_n := True
+  t80.BUSRQ_n := True
+  t80.DI := io.data_in
 
   // Подключение выходов
   io.data_out := t80.DO

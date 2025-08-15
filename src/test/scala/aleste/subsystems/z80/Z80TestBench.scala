@@ -2,6 +2,7 @@ package aleste.subsystems.z80
 
 import spinal.core._
 import spinal.lib._
+import spinal.core.sim._
 import aleste.utils.BinaryTools
 
 class Z80TestBench extends Component {
@@ -10,7 +11,6 @@ class Z80TestBench extends Component {
     val error = out(Bool())
   }
 
-  // Объявляем все сигналы ДО их использования
   val z80 = new Z80Subsystem()
   val cpuClockEn = Reg(Bool()) init(False)
   val clkCounter = Reg(UInt(5 bits)) init(0)
@@ -25,11 +25,13 @@ class Z80TestBench extends Component {
   clkCounter := clkCounter + 1
   cpuClockEn := clkCounter === 24
   when(cpuClockEn) { clkCounter := 0 }
+  
+  // Подключения
   z80.io.clk_en := cpuClockEn
-  z80.io.reset_n := !ClockDomain.current.reset
-
-  // Управление памятью
+  z80.io.reset_n := !ClockDomain.current.readResetWire // Исправленная строка
   z80.io.data_in := 0
+
+  // Обработка памяти
   when(z80.io.mem_mreq) {
     z80.io.data_in := ram.readSync(z80.io.addr)
     when(z80.io.mem_wr) {
@@ -37,17 +39,11 @@ class Z80TestBench extends Component {
     }
   }
 
-  // I/O обработчик (без преобразования в симуляции)
-  when(z80.io.mem_io && z80.io.mem_wr && z80.io.addr === 0xFF) {
-    // Просто выводим битовое представление
-    println(s"Console output: ${z80.io.data_out}")
-  }
-
-  // Детектор завершения теста
+  // Обработка завершения теста
   when(z80.io.addr === 0 && z80.io.mem_mreq) {
     testDone := True
   }
-
+  
   io.testDone := testDone
   io.error := False
 }
