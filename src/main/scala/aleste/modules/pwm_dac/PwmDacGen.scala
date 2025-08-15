@@ -1,20 +1,23 @@
 
-// src/main/scala/modules/i8255/top_level.scala
+// src/main/scala/modules/i8255/i8255_gen.scala
 package  aleste.modules.pwm_dac
 
 import spinal.core._
+import spinal.lib.io.TriState
 
-object TopLevel {
+object PwmDacGen {
   def main(args: Array[String]): Unit = {
     SpinalConfig(
-      targetDirectory = ".",
+      targetDirectory = "build/rtl/",  // Путь относительно корня проекта
       device = Device.LATTICE,
       defaultConfigForClockDomains = ClockDomainConfig(
         resetKind = SYNC,
         resetActiveLevel = LOW
       )
     ).generateVerilog(new PwmDac)
-
-    println("PwmDac Verilog generation completed successfully!")
+    
+    println("[SUCCESS] Generated pwm_dac.v")
   }
 }
+
+

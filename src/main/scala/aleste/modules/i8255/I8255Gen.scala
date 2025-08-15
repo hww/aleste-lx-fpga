@@ -7,7 +7,7 @@ import spinal.lib.io.TriState
 object i8255Gen {
   def main(args: Array[String]): Unit = {
     SpinalConfig(
-      targetDirectory = "rtl/verilog/",  // Путь относительно корня проекта
+      targetDirectory = "build/rtl/",  // Путь относительно корня проекта
       device = Device.LATTICE,
       defaultConfigForClockDomains = ClockDomainConfig(
         resetKind = SYNC,

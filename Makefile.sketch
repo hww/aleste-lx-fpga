@@ -1,0 +1,73 @@
+package aleste.subsystems.z80
+
+import spinal.core._
+import spinal.lib.bus.misc.BusSlaveFactory
+import spinal.lib.bus.amba3.apb.Apb3
+import spinal.lib.io.TriState
+
+class Z80Subsystem extends Component {
+  val io = new Bundle {
+    // APB3 интерфейс для подключения к системе
+    val apb = slave(Apb3(addressWidth = 16, dataWidth = 8))
+    
+    // Внешние сигналы Z80
+    val z80 = new Bundle {
+      val clk = in(Bool)
+      val reset_n = in(Bool)
+      val data = TriState(Bits(8 bits))
+      val addr = out(UInt(16 bits))
+      val mreq_n = out(Bool)
+      val iorq_n = out(Bool)
+      val rd_n = out(Bool)
+      val wr_n = out(Bool)
+    }
+  }
+
+  // Создаем BlackBox для Z80
+  val z80_core = new BlackBox {
+    val generic = new Generic {
+      val tech = "generic"
+    }
+
+    val io = new Bundle {
+      val CLK = in(Bool)
+      val RESET_n = in(Bool)
+      val WAIT_n = in(Bool)
+      val INT_n = in(Bool)
+      val NMI_n = in(Bool)
+      val BUSRQ_n = in(Bool)
+      val M1_n = out(Bool)
+      val MREQ_n = out(Bool)
+      val IORQ_n = out(Bool)
+      val RD_n = out(Bool)
+      val WR_n = out(Bool)
+      val RFSH_n = out(Bool)
+      val HALT_n = out(Bool)
+      val BUSAK_n = out(Bool)
+      val A = out(UInt(16 bits))
+      val D = inout(Analog(Bits(8 bits)))
+    }
+
+    // Подключаем VHDL-ядро
+    addRTLPath("rtl/z80_wrapper.vhd")
+    mapCurrentClockDomain(clock=io.z80.clk, reset=io.z80.reset_n)
+  }
+
+  // Подключение сигналов
+  z80_core.io.CLK := io.z80.clk
+  z80_core.io.RESET_n := io.z80.reset_n
+  io.z80.addr := z80_core.io.A
+  
+  // Управление шиной данных
+  io.z80.data.read := z80_core.io.D
+  when(io.z80.rd_n === False) {
+    z80_core.io.D := io.z80.data.write
+  } otherwise {
+    z80_core.io.D := null
+  }
+
+  // Подключение APB
+  val apbRegs = Apb3SlaveFactory(io.apb)
+  apbRegs.read(z80_core.io.D, 0x00)
+  apbRegs.write(z80_core.io.D, 0x00)
+}

@@ -1,15 +1,40 @@
-# Project Configuration
+# ====================== PROJECT CONFIGURATION ======================
+# Project Metadata
 PROJECT_NAME := aleste
-SBT := sbt -Djline.terminal=jline.UnsupportedTerminal -J-Xmx4G -J-XX:ParallelGCThreads=4 
 SCALA_PKG := aleste
-RTLS_DIR := rtl/verilog
-SIM_DIR := simulation
-REPORTS_DIR := reports
-# Yosys/NextPNR для ECP5
-SYNTH_DIR := synth
+
+# Build Directory Structure
+BUILD_DIR := build
+LOG_DIR := $(BUILD_DIR)/logs
+REPORT_DIR := $(BUILD_DIR)/reports
+RTLS_DIR := $(BUILD_DIR)/rtl
+SIM_DIR := $(BUILD_DIR)/sim
+SYNTH_DIR := $(BUILD_DIR)/synth
+
+# SBT Configuration
+SBT := sbt -Djline.terminal=jline.UnsupportedTerminal -J-Xmx4G -J-XX:ParallelGCThreads=4 
+
+# ECP5 Synthesis Settings
 DEVICE := --um5g-85k --package CABGA381
 CONSTRAINTS := constraints.lpf
-TOP_MODULE := Aleste  # Must match your actual top module name in Verilog
+TOP_MODULE := Aleste  # Must match your top module name in Verilog
+
+# ======================== VHDL CONFIGURATION =======================
+
+# Z80 Core Files
+Z80_CORE_DIR := rtl/cores/t80
+Z80_FILES := \
+    $(Z80_CORE_DIR)/T80_Pack.vhd \
+    $(Z80_CORE_DIR)/T80_MCode.vhd \
+    $(Z80_CORE_DIR)/T80_ALU.vhd \
+    $(Z80_CORE_DIR)/T80_Reg.vhd \
+    $(Z80_CORE_DIR)/T80.vhd \
+    $(Z80_CORE_DIR)/T80se.vhd \
+    rtl/z80_wrapper.vhd
+
+SRC_FILES += $(Z80_FILES)
+
+# ====================== SPINALHDL CONFIGURATION ====================
 
 # Module Hierarchy
 MODULES := \
@@ -18,52 +43,94 @@ MODULES := \
     aleste.modules.delta_sigma_dac \
     aleste
 
-# Тестовые цели
+# Test Targets
 TEST_SUITES := \
     aleste.modules.i8255_test \
     aleste.modules.pwm_dac_test \
     aleste.modules.delta_sigma_dac_test \
     aleste_test
 
-.PHONY: all clean generate test
+# ======================== BUILD TARGETS ==========================
+.PHONY: all clean generate test compile-vhdl init
 
 all: generate test
 
-# Генерация RTL
-generate: $(addprefix gen-,$(MODULES))
+# ----------------------- VHDL Compilation ------------------------
+compile-vhdl: $(Z80_FILES)
+	@echo "=== COMPILING VHDL ==="
+	@mkdir -p $(LOG_DIR)
+	ghdl -a --std=08 $(Z80_FILES) | tee $(LOG_DIR)/ghdl_compile.log
+	ghdl -e --std=08 z80_wrapper | tee -a $(LOG_DIR)/ghdl_compile.log
+
+# ----------------------- RTL Generation --------------------------
+generate: compile-vhdl $(addprefix gen-,$(MODULES))
+	@echo "=== RTL GENERATION COMPLETE ==="
 
 gen-%:
-	@echo "Generating $*..."
-	@mkdir -p $(RTLS_DIR)
-	echo $(SBT) "runMain $*.TopLevel"
-	@$(SBT) "runMain $*.TopLevel" > $(RTLS_DIR)/$*.log || (echo "Generation failed"; exit 1)
+	@echo "=== GENERATING $* ==="
+	@mkdir -p $(RTLS_DIR) $(LOG_DIR)
+	@$(SBT) "runMain $*.TopLevel" > $(LOG_DIR)/$*_rtlgen.log 2>&1; \
+	if [ $$? -ne 0 ]; then \
+		echo "*** GENERATION FAILED ***"; \
+		echo "Error details:"; \
+		grep -A 5 -B 5 -i "error" $(LOG_DIR)/$*_rtlgen.log || cat $(LOG_DIR)/$*_rtlgen.log; \
+		exit 1; \
+	else \
+		echo "=== GENERATION SUCCEEDED ==="; \
+	fi
 
-# Запуск тестов (ТАБУЛЯЦИЯ!)
+# ======================= TEST TARGETS ===========================
+
 test: test-unit test-integration test-system
 
 test-unit:
-	@echo "Running unit tests..."
-	@$(SBT) "testOnly $(TEST_SUITES)" | tee $(REPORTS_DIR)/unit_tests.log
+	@echo "=== RUNNING UNIT TESTS ==="
+	@mkdir -p $(REPORT_DIR)
+	$(SBT) "testOnly $(TEST_SUITES)" 2>&1 | tee $(REPORT_DIR)/unit_tests.log
 
 test-integration:
-	@echo "Running integration tests..."
-	@$(SBT) "testOnly $(SCALA_PKG).integration.*" | tee $(REPORTS_DIR)/integration_tests.log
+	@echo "=== RUNNING INTEGRATION TESTS ==="
+	$(SBT) "testOnly $(SCALA_PKG).integration.*" 2>&1 | tee $(REPORT_DIR)/integration_tests.log
 
 test-system:
-	@echo "Running system tests..."
-	@$(SBT) "testOnly $(SCALA_PKG).system.*" | tee $(REPORTS_DIR)/system_tests.log
+	@echo "=== RUNNING SYSTEM TESTS ==="
+	$(SBT) "testOnly $(SCALA_PKG).system.*" 2>&1 | tee $(REPORT_DIR)/system_tests.log
 
-# Остальные правила (wave, doc, clean, init, report) остаются аналогичными
+# ====================== SYNTHESIS TARGETS =======================
 
-# Синтез ECP5 (ТАБУЛЯЦИЯ В КОМАНДАХ!)
-#synth-ecp5: generate
-synth-ecp5: 
-	@echo "Running Yosys synthesis..."
-	@mkdir -p $(SYNTH_DIR)
-	@yosys -p "read_verilog $(RTLS_DIR)/*.v; synth_ecp5 -top $(TOP_MODULE) -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(SYNTH_DIR)/yosys.log
-# @yosys -p "read_verilog $(RTLS_DIR)/*.v; synth_ecp5 -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(SYNTH_DIR)/yosys.log
-	@echo "Running NextPNR..."
-	@nextpnr-ecp5 $(DEVICE) --top $(TOP_MODULE) --json $(SYNTH_DIR)/$(PROJECT_NAME).json --lpf $(CONSTRAINTS) --textcfg $(SYNTH_DIR)/$(PROJECT_NAME)_out.config 2>&1 | tee $(SYNTH_DIR)/nextpnr.log
-	@echo "Generating bitstream..."
-	@ecppack --svf $(SYNTH_DIR)/$(PROJECT_NAME).svf $(SYNTH_DIR)/$(PROJECT_NAME)_out.config $(SYNTH_DIR)/$(PROJECT_NAME).bit 2>&1 | tee $(SYNTH_DIR)/ecppack.log
-	@echo "Synthesis complete. Bitstream: $(SYNTH_DIR)/$(PROJECT_NAME).bit"
+synth-ecp5: generate
+	@echo "=== STARTING SYNTHESIS ==="
+	@mkdir -p $(SYNTH_DIR) $(LOG_DIR)
+	yosys -p "read_verilog $(RTLS_DIR)/*.v; synth_ecp5 -top $(TOP_MODULE) -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(LOG_DIR)/yosys.log
+	nextpnr-ecp5 $(DEVICE) --top $(TOP_MODULE) --json $(SYNTH_DIR)/$(PROJECT_NAME).json --lpf $(CONSTRAINTS) --textcfg $(SYNTH_DIR)/$(PROJECT_NAME)_out.config 2>&1 | tee $(LOG_DIR)/nextpnr.log
+	ecppack --svf $(SYNTH_DIR)/$(PROJECT_NAME).svf $(SYNTH_DIR)/$(PROJECT_NAME)_out.config $(SYNTH_DIR)/$(PROJECT_NAME).bit 2>&1 | tee $(LOG_DIR)/ecppack.log
+	@echo "=== BITSTREAM GENERATED: $(SYNTH_DIR)/$(PROJECT_NAME).bit ==="
+
+# ====================== UTILITY TARGETS ========================
+
+# ----------------------- Waveform View --------------------------
+wave:
+	@echo "=== OPENING WAVEFORM ==="
+	gtkwave $(SIM_DIR)/*.vcd &
+
+# ----------------------- Documentation --------------------------
+doc:
+	@echo "[DOC] Generating documentation..."
+	@$(SBT) "runMain $(PROJECT_NAME).DocGenerator"
+
+# ----------------------- Clean Project --------------------------
+clean:
+	@echo "=== CLEANING PROJECT ==="
+	rm -rf $(BUILD_DIR)
+	$(SBT) clean
+
+# ----------------------- Initialize Project ---------------------
+init:
+	@echo "[INIT] Setting up project structure..."
+	@mkdir -p $(RTLS_DIR) $(SIM_DIR) $(REPORTS_DIR) $(SYNTH_DIR)
+	@$(SBT) update
+
+# ----------------------- Generate Report ------------------------
+report:
+	@echo "[REPORT] Generating project report..."
+	@$(SBT) "runMain $(PROJECT_NAME).ReportGenerator" | tee $(REPORTS_DIR)/build_report.txt

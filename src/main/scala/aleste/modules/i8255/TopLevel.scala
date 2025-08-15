@@ -6,7 +6,7 @@ import spinal.core._
 object TopLevel {
   def main(args: Array[String]): Unit = {
     SpinalConfig(
-      targetDirectory = ".",
+      targetDirectory = "build/rtl/",  // Путь относительно корня проекта
       device = Device.LATTICE,
       defaultConfigForClockDomains = ClockDomainConfig(
         resetKind = SYNC,
