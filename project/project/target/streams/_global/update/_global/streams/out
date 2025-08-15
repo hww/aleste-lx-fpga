@@ -1,4 +1,0 @@
-[warn] sbt-bloop_2.12_1.0-2.0.13.jar no longer exists at /home/valery/.cache/coursier/v1/https/repo1.maven.org/maven2/ch/epfl/scala/sbt-bloop_2.12_1.0/2.0.13/sbt-bloop_2.12_1.0-2.0.13.jar
-[debug] not up to date. inChanged = false, force = false
-[debug] Updating ProjectRef(uri("file:/home/valery/aleste/project/project/"), "aleste-build-build")...
-[debug] Done updating ProjectRef(uri("file:/home/valery/aleste/project/project/"), "aleste-build-build")

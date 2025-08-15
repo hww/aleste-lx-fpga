@@ -1,148 +1,143 @@
-# ====================== PROJECT CONFIGURATION ======================
-# Project Metadata
-PROJECT_NAME := aleste
-SCALA_PKG := aleste
+# ===== BUILD CONFIGURATION =====
+PROJECT     := t80_zexall
+TOP_MODULE  := T80
+SIMULATOR   := verilator
+DEVICE      := ecp5-85
+LOG_DIR     := logs
+REPORT_DIR  := reports
+WAVE_DIR    := waveforms
+BUILD_DIR   := build
+TEST_DIR    := tests/zexall
 
-# Build Directory Structure
-BUILD_DIR := build
-LOG_DIR := $(BUILD_DIR)/logs
-REPORT_DIR := $(BUILD_DIR)/reports
-RTLS_DIR := $(BUILD_DIR)/rtl
-SIM_DIR := $(BUILD_DIR)/sim
-SYNTH_DIR := $(BUILD_DIR)/synth
-VHDL_WORKDIR := $(BUILD_DIR)/vhdl-work
+# ===== TOOLCHAIN PATHS =====
+VERILATOR   := verilator
+ICARUS      := iverilog
+YOSYS       := yosys
+NEXTPNR     := nextpnr-ecp5
+TRELLIS     := /usr/share/trellis
+ECPPROG     := ecpprog
 
-# SBT Configuration
-SBT := sbt -Djline.terminal=jline.UnsupportedTerminal -J-Xmx4G -J-XX:ParallelGCThreads=4 
+# ===== COLOR DEFINITIONS (ANSI) =====
+RED         := \033[0;31m
+GREEN       := \033[0;32m
+YELLOW      := \033[0;33m
+BLUE        := \033[0;34m
+MAGENTA     := \033[0;35m
+CYAN        := \033[0;36m
+RESET       := \033[0m
 
-# ECP5 Synthesis Settings
-DEVICE := --um5g-85k --package CABGA381
-CONSTRAINTS := constraints.lpf
-TOP_MODULE := Aleste  # Must match your top module name in Verilog
+# ===== SOURCE FILES =====
+RTL_SOURCES := $(wildcard cores/t80/*.sv) \
+               $(wildcard rtl/*.sv)
 
-# ======================== VHDL CONFIGURATION =======================
+TEST_SOURCES := tb/t80/zexall/tb_$(PROJECT).cpp
 
-# Z80 Core Files
-Z80_CORE_DIR := rtl/cores/t80
-Z80_FILES := \
-    $(Z80_CORE_DIR)/T80_Pack.vhd \
-    $(Z80_CORE_DIR)/T80_MCode.vhd \
-    $(Z80_CORE_DIR)/T80_ALU.vhd \
-    $(Z80_CORE_DIR)/T80_Reg.vhd \
-    $(Z80_CORE_DIR)/T80.vhd \
-    $(Z80_CORE_DIR)/T80se.vhd
+# ===== SIMULATION TARGETS =====
+.PHONY: all sim verilator icarus clean help
 
+all: sim
 
-SRC_FILES += $(Z80_FILES)
+# === SIMULATION ===
+sim: $(SIMULATOR)
 
-# ====================== SPINALHDL CONFIGURATION ====================
+verilator: $(BUILD_DIR)/verilator/$(PROJECT)
+	@echo "$(GREEN)Running Verilator simulation...$(RESET)"
+	@$(BUILD_DIR)/verilator/$(PROJECT) | tee $(LOG_DIR)/verilator.log
 
-# Module Hierarchy
-MODULES := \
-    aleste.modules.i8255 \
-    aleste.modules.pwm_dac \
-    aleste.modules.delta_sigma_dac \
-    aleste
+icarus: $(BUILD_DIR)/icarus/$(PROJECT)
+	@echo "$(GREEN)Running Icarus simulation...$(RESET)"
+	@vvp $(BUILD_DIR)/icarus/$(PROJECT) | tee $(LOG_DIR)/icarus.log
 
-# Test Targets
-TEST_SUITES := \
-    aleste.modules.i8255_test \
-    aleste.modules.pwm_dac_test \
-    aleste.modules.delta_sigma_dac_test \
-    aleste_test
+# === BUILD RULES ===
+$(BUILD_DIR)/verilator/$(PROJECT): $(RTL_SOURCES) $(TEST_SOURCES)
+	@echo "$(BLUE)Building with Verilator...$(RESET)"
+	@mkdir -p $(BUILD_DIR)/verilator $(LOG_DIR)
+	@$(VERILATOR) -Wall --cc --exe --build \
+		--top-module $(TOP_MODULE) \
+		--Mdir $(BUILD_DIR)/verilator \
+		--trace \
+		-Icores/t80 \
+		-Irtl \
+		$(RTL_SOURCES) \
+		$(TEST_SOURCES) \
+		-o $(PROJECT) \
+		| tee $(LOG_DIR)/verilator_build.log
 
-# ======================== BUILD TARGETS ==========================
-.PHONY: all clean generate test compile-vhdl init
+$(BUILD_DIR)/icarus/$(PROJECT): $(RTL_SOURCES) tb/t80/zexall/tb_$(PROJECT).sv
+	@echo "$(BLUE)Building with Icarus...$(RESET)"
+	@mkdir -p $(BUILD_DIR)/icarus $(LOG_DIR)
+	@$(ICARUS) -g2012 \
+		-Icores/t80 \
+		-Irtl \
+		-o $@ \
+		$(RTL_SOURCES) \
+		tb/t80/zexall/tb_$(PROJECT).sv \
+		| tee $(LOG_DIR)/icarus_build.log
 
-all: generate test
+# === FPGA SYNTHESIS ===
+# === ECP5 SYNTHESIS FLOW ===
+fpga: $(BUILD_DIR)/$(PROJECT).bit
 
-# ----------------------- VHDL Compilation ------------------------
-compile-vhdl: $(VHDL_WORKDIR)/.done
+$(BUILD_DIR)/$(PROJECT).json: $(RTL_SOURCES)
+	@echo "$(MAGENTA)Running Yosys synthesis...$(RESET)"
+	@mkdir -p $(BUILD_DIR) $(REPORT_DIR)
+	@$(YOSYS) -q -l $(LOG_DIR)/yosys.log -p \
+		"read_verilog -sv $(RTL_SOURCES); \
+		synth_ecp5 -top $(TOP_MODULE) -json $@ -report $(REPORT_DIR)/yosys.rpt"
 
-$(VHDL_WORKDIR)/.done: $(Z80_FILES)
-	@echo "=== COMPILING VHDL (STRUCTURED) ==="
-	@mkdir -p $(VHDL_WORKDIR) $(LOG_DIR)
-	@cd $(VHDL_WORKDIR) && \
-	for file in $(addprefix ../../,$(Z80_FILES)); do \
-		echo "Compiling $$file..."; \
-		ghdl -a --std=08 --work=work $$file || (echo "*** COMPILATION FAILED ***"; exit 1); \
-	done | tee ../../$(LOG_DIR)/ghdl_compile.log
-	@touch $(VHDL_WORKDIR)/.done
+$(BUILD_DIR)/$(PROJECT).config: $(BUILD_DIR)/$(PROJECT).json
+	@echo "$(MAGENTA)Running nextpnr...$(RESET)"
+	@$(NEXTPNR) --$(DEVICE) \
+		--json $< \
+		--textcfg $@ \
+		--lpf $(TRELLIS)/../prjtrellis/misc/ecp5.lpf \
+		--log $(LOG_DIR)/nextpnr.log \
+		--report $(REPORT_DIR)/nextpnr.rpt
 
-# ----------------------- RTL Generation --------------------------
-generate: compile-vhdl $(addprefix gen-,$(MODULES))
-	@echo "=== RTL GENERATION COMPLETE ==="
+$(BUILD_DIR)/$(PROJECT).bit: $(BUILD_DIR)/$(PROJECT).config
+	@echo "$(MAGENTA)Generating bitstream...$(RESET)"
+	@ecppack --svf $(BUILD_DIR)/$(PROJECT).svf $< $@ \
+		| tee $(LOG_DIR)/ecppack.log
 
-gen-%:
-	@echo "=== GENERATING $* ==="
-	@mkdir -p $(RTLS_DIR) $(LOG_DIR)
-	@$(SBT) "runMain $*.TopLevel" > $(LOG_DIR)/$*_rtlgen.log 2>&1; \
-	if [ $$? -ne 0 ]; then \
-		echo "*** GENERATION FAILED ***"; \
-		echo "Error details:"; \
-		grep -A 5 -B 5 -i "error" $(LOG_DIR)/$*_rtlgen.log || cat $(LOG_DIR)/$*_rtlgen.log; \
-		exit 1; \
-	else \
-		echo "=== GENERATION SUCCEEDED ==="; \
-	fi
-
-# ======================= TEST TARGETS ===========================
-
-test: test-unit test-integration test-system
-
-test-unit:
-	@echo "=== RUNNING UNIT TESTS ==="
-	@mkdir -p $(REPORT_DIR)
-	$(SBT) "testOnly $(TEST_SUITES)" 2>&1 | tee $(REPORT_DIR)/unit_tests.log
-
-test-integration:
-	@echo "=== RUNNING INTEGRATION TESTS ==="
-	$(SBT) "testOnly $(SCALA_PKG).integration.*" 2>&1 | tee $(REPORT_DIR)/integration_tests.log
-
-test-system:
-	@echo "=== RUNNING SYSTEM TESTS ==="
-	$(SBT) "testOnly $(SCALA_PKG).system.*" 2>&1 | tee $(REPORT_DIR)/system_tests.log
-
-test-zexall:
-	@echo "=== RUNNING ZEXALL TESTS ==="
-	@mkdir -p $(REPORT_DIR)
-	@$(SBT) "testOnly zexall.ZexallSpec" | tee $(REPORT_DIR)/zexall.log
-
-# ====================== SYNTHESIS TARGETS =======================
-
-synth-ecp5: generate
-	@echo "=== STARTING SYNTHESIS ==="
-	@mkdir -p $(SYNTH_DIR) $(LOG_DIR)
-	yosys -p "read_verilog $(RTLS_DIR)/*.v; synth_ecp5 -top $(TOP_MODULE) -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(LOG_DIR)/yosys.log
-	nextpnr-ecp5 $(DEVICE) --top $(TOP_MODULE) --json $(SYNTH_DIR)/$(PROJECT_NAME).json --lpf $(CONSTRAINTS) --textcfg $(SYNTH_DIR)/$(PROJECT_NAME)_out.config 2>&1 | tee $(LOG_DIR)/nextpnr.log
-	ecppack --svf $(SYNTH_DIR)/$(PROJECT_NAME).svf $(SYNTH_DIR)/$(PROJECT_NAME)_out.config $(SYNTH_DIR)/$(PROJECT_NAME).bit 2>&1 | tee $(LOG_DIR)/ecppack.log
-	@echo "=== BITSTREAM GENERATED: $(SYNTH_DIR)/$(PROJECT_NAME).bit ==="
-
-# ====================== UTILITY TARGETS ========================
-
-# ----------------------- Waveform View --------------------------
-wave:
-	@echo "=== OPENING WAVEFORM ==="
-	gtkwave $(SIM_DIR)/*.vcd &
-
-# ----------------------- Documentation --------------------------
-doc:
-	@echo "[DOC] Generating documentation..."
-	@$(SBT) "runMain $(PROJECT_NAME).DocGenerator"
-
-# ----------------------- Clean Project --------------------------
+# === UTILITY TARGETS ===
+# === CLEANUP ===
 clean:
-	@echo "=== CLEANING PROJECT ==="
-	rm -rf $(BUILD_DIR)
-	$(SBT) clean
+	@echo "$(RED)Cleaning build artifacts...$(RESET)"
+	@rm -rf $(BUILD_DIR) $(LOG_DIR) $(REPORT_DIR) $(WAVE_DIR)
+	@find . -name "*.vcd" -delete
 
-# ----------------------- Initialize Project ---------------------
+# === WAVEFORM VIEWING ===
+wave:
+	@echo "$(CYAN)Opening waveforms...$(RESET)"
+	@gtkwave $(WAVE_DIR)/$(PROJECT).vcd &
+
+# === HELP ===
+help:
+	@echo "$(YELLOW)=== AVAILABLE TARGETS ===$(RESET)"
+	@echo "$(GREEN)sim$(RESET)       : Run default simulation (Verilator)"
+	@echo "$(GREEN)verilator$(RESET) : Build and run Verilator simulation"
+	@echo "$(GREEN)icarus$(RESET)    : Build and run Icarus simulation"
+	@echo "$(GREEN)fpga$(RESET)      : Synthesize for ECP5 FPGA"
+	@echo "$(GREEN)wave$(RESET)      : View waveforms (GTKWave)"
+	@echo "$(GREEN)clean$(RESET)     : Remove all build artifacts"
+	@echo "$(GREEN)help$(RESET)      : Show this help message"
+
+# === INITIALIZATION ===
 init:
-	@echo "=== INIT PROJECT FOLDERS ==="
-	@mkdir -p $(RTLS_DIR) $(SIM_DIR) $(REPORTS_DIR) $(SYNTH_DIR)
-	@$(SBT) update
+	@echo "$(YELLOW)Initializing project directories...$(RESET)"
+	@mkdir -p $(BUILD_DIR) $(LOG_DIR) $(REPORT_DIR) $(WAVE_DIR)
 
-# ----------------------- Generate Report ------------------------
-report:
-	@echo "=== GENERATE REPORTS ==="
-	@$(SBT) "runMain $(PROJECT_NAME).ReportGenerator" 2>&1 | tee $(REPORT_DIR)/build_report.txt
+# === TEST FILE PREPARATION ===
+testfiles:
+	@echo "$(YELLOW)Preparing test files...$(RESET)"
+	@make -C $(TEST_DIR)
+
+# === DEPENDENCY CHECK ===
+check-deps:
+	@echo "$(YELLOW)=== CHECKING TOOL DEPENDENCIES ===$(RESET)"
+	@which $(VERILATOR) >/dev/null || echo "$(RED)Verilator not found!$(RESET)"
+	@which $(ICARUS) >/dev/null || echo "$(RED)Icarus Verilog not found!$(RESET)"
+	@which $(YOSYS) >/dev/null || echo "$(RED)Yosys not found!$(RESET)"
+	@which $(NEXTPNR) >/dev/null || echo "$(RED)nextpnr not found!$(RESET)"
+	@which $(ECPPROG) >/dev/null || echo "$(RED)ecpprog not found!$(RESET)"
+	@echo "$(GREEN)Dependency check complete$(RESET)"
