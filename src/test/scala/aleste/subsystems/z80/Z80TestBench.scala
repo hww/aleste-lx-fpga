@@ -26,6 +26,7 @@ class Z80TestBench extends Component {
   cpuClockEn := clkCounter === 24
   when(cpuClockEn) { clkCounter := 0 }
   z80.io.clk_en := cpuClockEn
+  z80.io.reset_n := !ClockDomain.current.reset
 
   // Управление памятью
   z80.io.data_in := 0
@@ -46,7 +47,7 @@ class Z80TestBench extends Component {
   when(z80.io.addr === 0 && z80.io.mem_mreq) {
     testDone := True
   }
-  
+
   io.testDone := testDone
   io.error := False
 }

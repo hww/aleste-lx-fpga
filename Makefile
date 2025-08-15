@@ -65,7 +65,7 @@ $(VHDL_WORKDIR)/.done: $(Z80_FILES)
 	@cd $(VHDL_WORKDIR) && \
 	for file in $(addprefix ../../,$(Z80_FILES)); do \
 		echo "Compiling $$file..."; \
-		ghdl -a --std=08 --work=work $$file || (echo "*** COMPILATION FAILED ***"; exit 1); \
+		ghdl -a -fsynopsys --std=08  --work=work $$file || (echo "*** COMPILATION FAILED ***"; exit 1); \
 	done | tee ../../$(LOG_DIR)/ghdl_compile.log
 	@touch $(VHDL_WORKDIR)/.done
 
@@ -106,7 +106,7 @@ test-system:
 test-zexall:
 	@echo "=== RUNNING ZEXALL TESTS ==="
 	@mkdir -p $(REPORT_DIR)
-	@$(SBT) "testOnly zexall.ZexallSpec" | tee $(REPORT_DIR)/zexall.log
+	@$(SBT) "testOnly aleste.subsystems.z80.ZexallSpec" | tee $(REPORT_DIR)/zexall.log
 
 # ====================== SYNTHESIS TARGETS =======================
 

@@ -3,7 +3,7 @@ ThisBuild / version := "1.0"
 ThisBuild / scalaVersion := "2.13.12"
 ThisBuild / organization := "org.example"
 
-val spinalVersion = "1.10.1"
+val spinalVersion = "1.9.4"
 
 lazy val root = (project in file("."))
   .settings(
@@ -22,4 +22,3 @@ lazy val root = (project in file("."))
     javaOptions ++= Seq("-Xmx4G", "-Xss8M", "-XX:MaxMetaspaceSize=1G"),
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-language:reflectiveCalls"),
   )
-
