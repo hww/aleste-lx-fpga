@@ -10,6 +10,7 @@ REPORT_DIR := $(BUILD_DIR)/reports
 RTLS_DIR := $(BUILD_DIR)/rtl
 SIM_DIR := $(BUILD_DIR)/sim
 SYNTH_DIR := $(BUILD_DIR)/synth
+VHDL_WORKDIR := $(BUILD_DIR)/vhdl-work
 
 # SBT Configuration
 SBT := sbt -Djline.terminal=jline.UnsupportedTerminal -J-Xmx4G -J-XX:ParallelGCThreads=4 
@@ -29,8 +30,8 @@ Z80_FILES := \
     $(Z80_CORE_DIR)/T80_ALU.vhd \
     $(Z80_CORE_DIR)/T80_Reg.vhd \
     $(Z80_CORE_DIR)/T80.vhd \
-    $(Z80_CORE_DIR)/T80se.vhd \
-    rtl/z80_wrapper.vhd
+    $(Z80_CORE_DIR)/T80se.vhd
+
 
 SRC_FILES += $(Z80_FILES)
 
@@ -56,11 +57,17 @@ TEST_SUITES := \
 all: generate test
 
 # ----------------------- VHDL Compilation ------------------------
-compile-vhdl: $(Z80_FILES)
-	@echo "=== COMPILING VHDL ==="
-	@mkdir -p $(LOG_DIR)
-	ghdl -a --std=08 $(Z80_FILES) | tee $(LOG_DIR)/ghdl_compile.log
-	ghdl -e --std=08 z80_wrapper | tee -a $(LOG_DIR)/ghdl_compile.log
+compile-vhdl: $(VHDL_WORKDIR)/.done
+
+$(VHDL_WORKDIR)/.done: $(Z80_FILES)
+	@echo "=== COMPILING VHDL (STRUCTURED) ==="
+	@mkdir -p $(VHDL_WORKDIR) $(LOG_DIR)
+	@cd $(VHDL_WORKDIR) && \
+	for file in $(addprefix ../../,$(Z80_FILES)); do \
+		echo "Compiling $$file..."; \
+		ghdl -a --std=08 --work=work $$file || (echo "*** COMPILATION FAILED ***"; exit 1); \
+	done | tee ../../$(LOG_DIR)/ghdl_compile.log
+	@touch $(VHDL_WORKDIR)/.done
 
 # ----------------------- RTL Generation --------------------------
 generate: compile-vhdl $(addprefix gen-,$(MODULES))
@@ -96,6 +103,11 @@ test-system:
 	@echo "=== RUNNING SYSTEM TESTS ==="
 	$(SBT) "testOnly $(SCALA_PKG).system.*" 2>&1 | tee $(REPORT_DIR)/system_tests.log
 
+test-zexall:
+	@echo "=== RUNNING ZEXALL TESTS ==="
+	@mkdir -p $(REPORT_DIR)
+	@$(SBT) "testOnly zexall.ZexallSpec" | tee $(REPORT_DIR)/zexall.log
+
 # ====================== SYNTHESIS TARGETS =======================
 
 synth-ecp5: generate
@@ -126,11 +138,11 @@ clean:
 
 # ----------------------- Initialize Project ---------------------
 init:
-	@echo "[INIT] Setting up project structure..."
+	@echo "=== INIT PROJECT FOLDERS ==="
 	@mkdir -p $(RTLS_DIR) $(SIM_DIR) $(REPORTS_DIR) $(SYNTH_DIR)
 	@$(SBT) update
 
 # ----------------------- Generate Report ------------------------
 report:
-	@echo "[REPORT] Generating project report..."
-	@$(SBT) "runMain $(PROJECT_NAME).ReportGenerator" | tee $(REPORTS_DIR)/build_report.txt
+	@echo "=== GENERATE REPORTS ==="
+	@$(SBT) "runMain $(PROJECT_NAME).ReportGenerator" 2>&1 | tee $(REPORT_DIR)/build_report.txt
