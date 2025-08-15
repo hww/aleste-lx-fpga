@@ -1,0 +1,48 @@
+# === BUILD ARTIFACTS ===
+/build/
+/obj_dir/
+/logs/
+/reports/
+/waveforms/
+
+# === SIMULATION FILES ===
+*.vcd
+*.dump
+*.vpd
+*.fsdb
+*.log
+
+# === SYNTHESIS OUTPUTS ===
+*.bit
+*.json
+*.config
+*.svf
+*.ys
+
+# === EDITOR/IDE FILES ===
+*.swp
+*.swo
+*~
+.DS_Store
+.idea/
+.vscode/
+
+# === DEPENDENCIES ===
+*.d
+*.o
+*.a
+*.so
+*.dll
+
+# === EXECUTABLES ===
+/t80_zexall
+/vvp_exec
+
+# === TEST OUTPUTS ===
+/tests/*.out
+/tests/*.diff
+
+# === TEMPORARY FILES ===
+*.tmp
+*.bak
+*.backup
