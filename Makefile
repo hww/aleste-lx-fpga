@@ -10,7 +10,7 @@ REPORT_DIR := $(BUILD_DIR)/reports
 RTLS_DIR := $(BUILD_DIR)/rtl
 SIM_DIR := $(BUILD_DIR)/sim
 SYNTH_DIR := $(BUILD_DIR)/synth
-VHDL_WORKDIR := $(BUILD_DIR)/vhdl-work
+VERILOG_WORKDIR := $(BUILD_DIR)/verilog-work
 
 # SBT Configuration
 SBT := sbt -Djline.terminal=jline.UnsupportedTerminal -J-Xmx4G -J-XX:ParallelGCThreads=4 
@@ -20,20 +20,53 @@ DEVICE := --um5g-85k --package CABGA381
 CONSTRAINTS := constraints.lpf
 TOP_MODULE := Aleste  # Must match your top module name in Verilog
 
-# ======================== VHDL CONFIGURATION =======================
+# ======================== VERILOG CONFIGURATION =======================
 
-# Z80 Core Files
-Z80_CORE_DIR := rtl/cores/t80
-Z80_FILES := \
-    $(Z80_CORE_DIR)/T80_Pack.vhd \
-    $(Z80_CORE_DIR)/T80_MCode.vhd \
-    $(Z80_CORE_DIR)/T80_ALU.vhd \
-    $(Z80_CORE_DIR)/T80_Reg.vhd \
-    $(Z80_CORE_DIR)/T80.vhd \
-    $(Z80_CORE_DIR)/T80se.vhd
+# A-Z80 Core Files
+AZ80_CORE_DIR := rtl/cores/a-z80
+AZ80_FILES := \
+	$(AZ80_CORE_DIR)/address_latch.v \
+	$(AZ80_CORE_DIR)/address_mux.v \
+	$(AZ80_CORE_DIR)/address_pins.v \
+	$(AZ80_CORE_DIR)/alu.v \
+	$(AZ80_CORE_DIR)/alu_bit_select.v \
+	$(AZ80_CORE_DIR)/alu_control.v \
+	$(AZ80_CORE_DIR)/alu_core.v \
+	$(AZ80_CORE_DIR)/alu_flags.v \
+	$(AZ80_CORE_DIR)/alu_mux_2.v \
+	$(AZ80_CORE_DIR)/alu_mux_2z.v \
+	$(AZ80_CORE_DIR)/alu_mux_3z.v \
+	$(AZ80_CORE_DIR)/alu_mux_4.v \
+	$(AZ80_CORE_DIR)/alu_mux_8.v \
+	$(AZ80_CORE_DIR)/alu_prep_daa.v \
+	$(AZ80_CORE_DIR)/alu_select.v \
+	$(AZ80_CORE_DIR)/alu_shifter_core.v \
+	$(AZ80_CORE_DIR)/alu_slice.v \
+	$(AZ80_CORE_DIR)/bus_control.v \
+	$(AZ80_CORE_DIR)/bus_switch.v \
+	$(AZ80_CORE_DIR)/clk_delay.v \
+	$(AZ80_CORE_DIR)/control_pins_n.v \
+	$(AZ80_CORE_DIR)/data_pins.v \
+	$(AZ80_CORE_DIR)/data_switch.v \
+	$(AZ80_CORE_DIR)/data_switch_mask.v \
+	$(AZ80_CORE_DIR)/decode_state.v \
+	$(AZ80_CORE_DIR)/execute.v \
+	$(AZ80_CORE_DIR)/inc_dec.v \
+	$(AZ80_CORE_DIR)/inc_dec_2bit.v \
+	$(AZ80_CORE_DIR)/interrupts.v \
+	$(AZ80_CORE_DIR)/ir.v \
+	$(AZ80_CORE_DIR)/memory_ifc.v \
+	$(AZ80_CORE_DIR)/pin_control.v \
+	$(AZ80_CORE_DIR)/pla_decode.v \
+	$(AZ80_CORE_DIR)/reg_control.v \
+	$(AZ80_CORE_DIR)/reg_file.v \
+	$(AZ80_CORE_DIR)/reg_latch.v \
+	$(AZ80_CORE_DIR)/resets.v \
+	$(AZ80_CORE_DIR)/sequencer.v \
+	$(AZ80_CORE_DIR)/z80_top_direct_n.v
 
 
-SRC_FILES += $(Z80_FILES)
+SRC_FILES += $(AZ80_FILES)
 
 # ====================== SPINALHDL CONFIGURATION ====================
 
@@ -46,31 +79,26 @@ MODULES := \
 
 # Test Targets
 TEST_SUITES := \
-	aleste.modules.pwm_dac.PwmDacTest \
-	aleste.modules.delta_sigma_dac.DeltaSigmaDacTes \
-	aleste.modules.i8255.I8255Test \
+    aleste.modules.pwm_dac.PwmDacTest \
+    aleste.modules.delta_sigma_dac.DeltaSigmaDacTes \
+    aleste.modules.i8255.I8255Test \
     aleste.AlesyteTest
 
 # ======================== BUILD TARGETS ==========================
-.PHONY: all clean generate test compile-vhdl init
+.PHONY: all clean generate test compile-verilog init
 
 all: generate test
 
-# ----------------------- VHDL Compilation ------------------------
-compile-vhdl: $(VHDL_WORKDIR)/.done
+# ----------------------- Verilog Compilation ------------------------
+compile-verilog: $(VERILOG_WORKDIR)/.done
 
-$(VHDL_WORKDIR)/.done: $(Z80_FILES)
-	@echo "=== COMPILING VHDL (STRUCTURED) ==="
-	@mkdir -p $(VHDL_WORKDIR) $(LOG_DIR)
-	@cd $(VHDL_WORKDIR) && \
-	for file in $(addprefix ../../,$(Z80_FILES)); do \
-		echo "Compiling $$file..."; \
-		ghdl -a -fexplicit -fsynopsys --std=08 --work=work $$file || (echo "*** COMPILATION FAILED ***"; exit 1); \
-	done | tee ../../$(LOG_DIR)/ghdl_compile.log
-	@touch $(VHDL_WORKDIR)/.done
+$(VERILOG_WORKDIR)/.done: $(AZ80_FILES)
+	@echo "=== PREPARING VERILOG FILES ==="
+	@mkdir -p $(VERILOG_WORKDIR) $(LOG_DIR)
+	@touch $(VERILOG_WORKDIR)/.done
 
 # ----------------------- RTL Generation --------------------------
-generate: compile-vhdl $(addprefix gen-,$(MODULES))
+generate: compile-verilog $(addprefix gen-,$(MODULES))
 	@echo "=== RTL GENERATION COMPLETE ==="
 
 gen-%:
@@ -78,12 +106,12 @@ gen-%:
 	@mkdir -p $(RTLS_DIR) $(LOG_DIR)
 	@$(SBT) "runMain $*.TopLevel" > $(LOG_DIR)/$*_rtlgen.log 2>&1; \
 	if [ $$? -ne 0 ]; then \
-		echo "*** GENERATION FAILED ***"; \
-		echo "Error details:"; \
-		grep -A 5 -B 5 -i "error" $(LOG_DIR)/$*_rtlgen.log || cat $(LOG_DIR)/$*_rtlgen.log; \
-		exit 1; \
+	    echo "*** GENERATION FAILED ***"; \
+	    echo "Error details:"; \
+	    grep -A 5 -B 5 -i "error" $(LOG_DIR)/$*_rtlgen.log || cat $(LOG_DIR)/$*_rtlgen.log; \
+	    exit 1; \
 	else \
-		echo "=== GENERATION SUCCEEDED ==="; \
+	    echo "=== GENERATION SUCCEEDED ==="; \
 	fi
 
 # ======================= TEST TARGETS ===========================
@@ -113,7 +141,7 @@ test-zexall:
 synth-ecp5: generate
 	@echo "=== STARTING SYNTHESIS ==="
 	@mkdir -p $(SYNTH_DIR) $(LOG_DIR)
-	yosys -p "read_verilog $(RTLS_DIR)/*.v; synth_ecp5 -top $(TOP_MODULE) -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(LOG_DIR)/yosys.log
+	yosys -p "read_verilog $(RTLS_DIR)/*.v $(AZ80_FILES); synth_ecp5 -top $(TOP_MODULE) -json $(SYNTH_DIR)/$(PROJECT_NAME).json" 2>&1 | tee $(LOG_DIR)/yosys.log
 	nextpnr-ecp5 $(DEVICE) --top $(TOP_MODULE) --json $(SYNTH_DIR)/$(PROJECT_NAME).json --lpf $(CONSTRAINTS) --textcfg $(SYNTH_DIR)/$(PROJECT_NAME)_out.config 2>&1 | tee $(LOG_DIR)/nextpnr.log
 	ecppack --svf $(SYNTH_DIR)/$(PROJECT_NAME).svf $(SYNTH_DIR)/$(PROJECT_NAME)_out.config $(SYNTH_DIR)/$(PROJECT_NAME).bit 2>&1 | tee $(LOG_DIR)/ecppack.log
 	@echo "=== BITSTREAM GENERATED: $(SYNTH_DIR)/$(PROJECT_NAME).bit ==="

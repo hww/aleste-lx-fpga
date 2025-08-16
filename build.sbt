@@ -3,7 +3,7 @@ ThisBuild / version := "1.0"
 ThisBuild / scalaVersion := "2.13.12"
 ThisBuild / organization := "org.example"
 
-val spinalVersion = "1.9.4"
+val spinalVersion = "1.10.1"
 
 lazy val root = (project in file("."))
   .settings(

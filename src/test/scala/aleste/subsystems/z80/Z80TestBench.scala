@@ -6,6 +6,10 @@ import spinal.core.sim._
 import aleste.utils.BinaryTools
 
 class Z80TestBench extends Component {
+
+  // Set the VHDL entity name explicitly (must be before any internal logic)
+  setDefinitionName("z80testbench")  // <-- This is the correct modern way
+
   val io = new Bundle {
     val testDone = out(Bool())
     val error = out(Bool())
