@@ -46,10 +46,10 @@ MODULES := \
 
 # Test Targets
 TEST_SUITES := \
-    aleste.modules.i8255_test \
-    aleste.modules.pwm_dac_test \
-    aleste.modules.delta_sigma_dac_test \
-    aleste_test
+	aleste.modules.pwm_dac.PwmDacTest \
+	aleste.modules.delta_sigma_dac.DeltaSigmaDacTes \
+	aleste.modules.i8255.I8255Test \
+    aleste.AlesyteTest
 
 # ======================== BUILD TARGETS ==========================
 .PHONY: all clean generate test compile-vhdl init
@@ -65,7 +65,7 @@ $(VHDL_WORKDIR)/.done: $(Z80_FILES)
 	@cd $(VHDL_WORKDIR) && \
 	for file in $(addprefix ../../,$(Z80_FILES)); do \
 		echo "Compiling $$file..."; \
-		ghdl -a -fsynopsys --std=08  --work=work $$file || (echo "*** COMPILATION FAILED ***"; exit 1); \
+		ghdl -a -fexplicit -fsynopsys --std=08 --work=work $$file || (echo "*** COMPILATION FAILED ***"; exit 1); \
 	done | tee ../../$(LOG_DIR)/ghdl_compile.log
 	@touch $(VHDL_WORKDIR)/.done
 

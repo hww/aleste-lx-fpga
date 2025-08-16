@@ -1,6 +1,7 @@
 # Build and generated files
 /target/
 /project/target/
+/project/project/
 /.bloop/
 /.metals/
 /reports/
@@ -56,3 +57,4 @@ Thumbs.db
 *.swp
 *~
 *.bak
+project/project/target/streams/_global/update/_global/streams/out

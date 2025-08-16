@@ -21,4 +21,9 @@ lazy val root = (project in file("."))
     fork := true,
     javaOptions ++= Seq("-Xmx4G", "-Xss8M", "-XX:MaxMetaspaceSize=1G"),
     scalacOptions ++= Seq("-unchecked", "-deprecation", "-feature", "-language:reflectiveCalls"),
+    resolvers ++= Seq(
+      Resolver.mavenLocal,
+     // "SpinalHDL Repo" at "https://github.com/SpinalHDL/SpinalHDL/releases",
+      "jitpack" at "https://jitpack.io"
+    )
   )

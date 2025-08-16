@@ -17,8 +17,9 @@ class Z80Subsystem extends Component {
     val clk = in Bool()  // Добавляем явный вход тактового сигнала
   }
 
+
   // Изолированный BlackBox без прямого подключения к clockDomain
-  val t80 = new BlackBox {
+  val t80box = new BlackBox {
     // Порты
     val RESET_n = in Bool()
     val CLK_n = in Bool()
@@ -49,27 +50,27 @@ class Z80Subsystem extends Component {
     addRTLPath("rtl/cores/t80/T80_MCode.vhd")
     addRTLPath("rtl/cores/t80/T80_ALU.vhd")
     addRTLPath("rtl/cores/t80/T80_Reg.vhd")
+    addRTLPath("rtl/cores/t80/T80.vhd")
     addRTLPath("rtl/cores/t80/T80se.vhd")
     
     // Явное подключение без использования clockDomain
-    CLK_n := !io.clk
-    RESET_n := io.reset_n
-    CLKEN := io.clk_en
-    WAIT_n := True
-    INT_n := True
-    NMI_n := True
-    BUSRQ_n := True
-    DI := io.data_in
-
+    noIoPrefix()
   }
 
   // Подключение выходов
-  io.data_out := t80.DO
-  io.addr := t80.A.asUInt
-  io.mem_mreq := !t80.MREQ_n
-  io.mem_io := !t80.IORQ_n
-  io.mem_rd := !t80.RD_n
-  io.mem_wr := !t80.WR_n
+  io.data_out := t80box.DO
+  io.addr := t80box.A.asUInt
+  io.mem_mreq := !t80box.MREQ_n
+  io.mem_io := !t80box.IORQ_n
+  io.mem_rd := !t80box.RD_n
+  io.mem_wr := !t80box.WR_n
 
-
+  t80box.CLK_n := !io.clk
+  t80box.RESET_n := io.reset_n
+  t80box.CLKEN := io.clk_en
+  t80box.WAIT_n := True
+  t80box.INT_n := True
+  t80box.NMI_n := True
+  t80box.BUSRQ_n := True
+  t80box.DI := io.data_in
 }
